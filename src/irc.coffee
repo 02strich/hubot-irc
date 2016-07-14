@@ -7,7 +7,7 @@ class IrcResponse extends Response
     @robot.adapter.sendPrivate @envelope, strings...
 
 # Irc library
-Irc = require 'irc'
+Irc = require 'irc-framework'
 
 Log = require('log')
 logger = new Log process.env.HUBOT_LOG_LEVEL or 'info'
@@ -23,11 +23,13 @@ class IrcBot extends Adapter
       return logger.error "ERROR: Not sure who to send to. envelope=", envelope
 
     for str in strings
-      logger.debug "#{target} #{str}"
-      @bot.say target, str
+      for strline in str.split('\n')
+        logger.info "#{target} #{strline}"
+        @bot.say target, strline
 
   sendPrivate: (envelope, strings...) ->
     # Remove the room from the envelope and send as private message to user
+    logger.info 'sendPrivate'
 
     if envelope.room
       delete envelope.room
@@ -172,17 +174,20 @@ class IrcBot extends Adapter
       userName: process.env.HUBOT_IRC_USERNAME
 
     client_options =
-      userName: options.userName
-      realName: options.realName
+      server:
+        host: options.server
+        port: options.port
+      nickname: options.nick
+      username: options.userName
+      realname: options.realName
       password: options.password
-      debug: options.debug
-      port: options.port
-      stripColors: true
-      secure: options.usessl
-      selfSigned: options.fakessl
-      certExpired: options.certExpired
-      floodProtection: @unfloodProtection(options.unflood),
-      floodProtectionDelay: @unfloodProtectionDelay(options.unflood),
+      #debug: options.debug
+      #stripColors: true
+      #secure: options.usessl
+      #selfSigned: options.fakessl
+      #certExpired: options.certExpired
+      #floodProtection: @unfloodProtection(options.unflood),
+      #floodProtectionDelay: @unfloodProtectionDelay(options.unflood),
 
     client_options['channels'] = options.rooms unless options.nickpass
 
@@ -190,7 +195,12 @@ class IrcBot extends Adapter
     @robot.Response = IrcResponse
 
     @robot.name = options.nick
-    bot = new Irc.Client options.server, options.nick, client_options
+    bot = new Irc.Client
+    bot.connect host: options.server, nick: options.nick, username: options.userName, password: options.password
+    bot.on 'raw', (e) ->
+        logger.info "RAW: " + e
+    bot.on 'registered', () ->
+        bot.join room for room in options.rooms
 
     next_id = 1
     user_id = {}
@@ -222,113 +232,111 @@ class IrcBot extends Adapter
       for nick of nicks
         self.createUser channel, nick
 
-    bot.addListener 'notice', (from, to, message) ->
-      return unless from
-
-      if from in options.ignoreUsers
-        logger.info('Ignoring user: %s', from)
+    bot.addListener 'notice', (event) ->
+      if event.nick in options.ignoreUsers
+        logger.info('Ignoring user: %s', event.nick)
         # we'll ignore this message if it's from someone we want to ignore
         return
 
-      logger.info "NOTICE from #{from} to #{to}: #{message}"
+      logger.info "NOTICE from #{event.nick} to #{event.target}: #{event.message}"
 
-      user = self.createUser to, from
-      self.receive new TextMessage(user, message)
+      user = self.createUser event.target, event.nick
+      self.receive new TextMessage(user, event.message)
 
-    bot.addListener 'message', (from, to, message) ->
-      return unless from
-      
-      if options.nick.toLowerCase() == to.toLowerCase()
+    bot.addListener 'message', (event) ->
+      if options.nick.toLowerCase() == event.target.toLowerCase()
         # this is a private message, let the 'pm' listener handle it
         return
 
-      if from in options.ignoreUsers
+      if event.nick in options.ignoreUsers
+        logger.info('Ignoring user: %s', event.nick)
+        # we'll ignore this message if it's from someone we want to ignore
+        return
+
+      logger.debug "From #{event.nick} to #{event.target}: #{event.message}"
+
+      user = self.createUser event.target, event.nick
+      if user.room
+        logger.debug "#{event.target} <#{event.nick}> #{event.message}"
+      else
+        unless event.message.indexOf(event.target) == 0
+          message = "#{event.target}: #{event.msg}"
+        logger.debug "msg <#{event.nick}> #{event.msg}"
+
+      self.receive new TextMessage(user, event.message)
+
+    bot.addListener 'action', (event) ->
+      logger.debug " * From #{event.nick} to #{event.target}: #{event.message}"
+
+      if event.nick in options.ignoreUsers
         logger.info('Ignoring user: %s', from)
         # we'll ignore this message if it's from someone we want to ignore
         return
 
-      logger.debug "From #{from} to #{to}: #{message}"
-
-      user = self.createUser to, from
+      user = self.createUser event.target, event.nick
       if user.room
-        logger.debug "#{to} <#{from}> #{message}"
+        logger.debug "#{event.target} * #{event.nick} #{event.message}"
       else
-        unless message.indexOf(to) == 0
-          message = "#{to}: #{message}"
-        logger.debug "msg <#{from}> #{message}"
+        logger.debug "msg <#{event.nick}> #{event.message}"
 
-      self.receive new TextMessage(user, message)
+      self.receive new TextMessage(user, event.message)
 
-    bot.addListener 'action', (from, to, message) ->
-      logger.debug " * From #{from} to #{to}: #{message}"
+    #bot.addListener 'error', (message) ->
+    #  logger.error('ERROR: %s: %s', message.command, message.args.join(' '))
 
-      if from in options.ignoreUsers
-        logger.info('Ignoring user: %s', from)
-        # we'll ignore this message if it's from someone we want to ignore
-        return
-
-      user = self.createUser to, from
-      if user.room
-        logger.debug "#{to} * #{from} #{message}"
-      else
-        logger.debug "msg <#{from}> #{message}"
-
-      self.receive new TextMessage(user, message)
-
-    bot.addListener 'error', (message) ->
-      logger.error('ERROR: %s: %s', message.command, message.args.join(' '))
-
-    bot.addListener 'pm', (nick, message) ->
-      logger.info('Got private message from %s: %s', nick, message)
+    bot.addListener 'privmsg', (event) ->
+      logger.info('Got private message from %s: %s', event.nick, event.message)
 
       if process.env.HUBOT_IRC_PRIVATE
         return
 
-      if nick in options.ignoreUsers
+      if event.nick in options.ignoreUsers
         logger.info('Ignoring user: %s', nick)
         # we'll ignore this message if it's from someone we want to ignore
         return
 
       nameLength = options.nick.length
-      if message.slice(0, nameLength).toLowerCase() != options.nick.toLowerCase()
-        message = "#{options.nick} #{message}"
+      if event.message.slice(0, nameLength).toLowerCase() != options.nick.toLowerCase()
+        message = "#{options.nick} #{event.message}"
+      else
+        message = event.message
 
-      self.receive new TextMessage({reply_to: nick, name: nick}, message)
+      self.receive new TextMessage({reply_to: event.nick, name: event.nick}, 'message')
 
-    bot.addListener 'join', (channel, who) ->
-      logger.info('%s has joined %s', who, channel)
-      user = self.createUser channel, who
-      user.room = channel
+    bot.addListener 'join', (event) ->
+      logger.info('%s has joined %s', event.nick, event.channel)
+      user = self.createUser event.channel, event.nick
+      user.room = event.channel
       self.receive new EnterMessage(user)
 
-    bot.addListener 'part', (channel, who, reason) ->
-      logger.info('%s has left %s: %s', who, channel, reason)
-      user = self.createUser '', who
-      user.room = channel
+    bot.addListener 'part', (event) ->
+      logger.info('%s has left %s: %s', event.nick, event.channel, event.message)
+      user = self.createUser '', event.nick
+      user.room = event.channel
       msg = new LeaveMessage user
-      msg.text = reason
+      msg.text = event.message
       self.receive msg
 
-    bot.addListener 'quit', (who, reason, channels) ->
-      logger.info '%s has quit: %s (%s)', who, channels, reason
-      for ch in channels
-        user = self.createUser '', who
-        user.room = ch
-        msg = new LeaveMessage user
-        msg.text = reason
-        self.receive msg
+    bot.addListener 'quit', (event) ->
+      logger.info '%s has quit: %s', event.nick, event.message
+      #for ch in channels
+      #  user = self.createUser '', who
+      #  user.room = ch
+      #  msg = new LeaveMessage user
+      #  msg.text = reason
+      #  self.receive msg
 
-    bot.addListener 'kick', (channel, who, _by, reason) ->
-      logger.info('%s was kicked from %s by %s: %s', who, channel, _by, reason)
+    bot.addListener 'kick', (event) ->
+      logger.info('%s was kicked from %s by %s: %s', event.nick, event.channel, event.kicked, event.message)
 
-    bot.addListener 'invite', (channel, from) ->
-      logger.info('%s invited you to join %s', from, channel)
+    bot.addListener 'invite', (event) ->
+      logger.info('%s invited you to join %s', event.nick, event.channel)
 
-      if from in options.ignoreUsers
+      if event.invited in options.ignoreUsers
         logger.info('Ignoring user: %s', from)
         # we'll ignore this message if it's from someone we want to ignore
         return
-      
+
       if not process.env.HUBOT_IRC_PRIVATE or process.env.HUBOT_IRC_IGNOREINVITE
         bot.join channel
 
