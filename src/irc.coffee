@@ -200,7 +200,7 @@ class IrcBot extends Adapter
     bot.on 'raw', (e) ->
         logger.info "RAW: " + e
     bot.on 'registered', () ->
-        bot.join room for room in options.rooms
+      bot.join room for room in options.rooms
 
     next_id = 1
     user_id = {}
