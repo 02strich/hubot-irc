@@ -197,7 +197,8 @@ class IrcBot extends Adapter
     @robot.name = options.nick
     bot = new Irc.Client
     bot.connect host: options.server, nick: options.nick, username: options.userName, password: options.password
-    bot.on 'raw', (e) ->
+    if options.debug
+      bot.on 'raw', (e) ->
         logger.info "RAW: " + e
     bot.on 'registered', () ->
       bot.join room for room in options.rooms
