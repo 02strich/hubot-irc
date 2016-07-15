@@ -173,30 +173,20 @@ class IrcBot extends Adapter
       usessl:   process.env.HUBOT_IRC_USESSL?
       userName: process.env.HUBOT_IRC_USERNAME
 
-    client_options =
-      server:
-        host: options.server
-        port: options.port
-      nickname: options.nick
+    connect_options =
+      host: options.server
+      port: options.port
+      nick: options.nick
       username: options.userName
-      realname: options.realName
       password: options.password
-      #debug: options.debug
-      #stripColors: true
-      #secure: options.usessl
-      #selfSigned: options.fakessl
-      #certExpired: options.certExpired
-      #floodProtection: @unfloodProtection(options.unflood),
-      #floodProtectionDelay: @unfloodProtectionDelay(options.unflood),
-
-    client_options['channels'] = options.rooms unless options.nickpass
+      ssl: options.usessl
 
     # Override the response to provide a sendPrivate method
     @robot.Response = IrcResponse
 
     @robot.name = options.nick
     bot = new Irc.Client
-    bot.connect host: options.server, nick: options.nick, username: options.userName, password: options.password
+    bot.connect connect_options
     if options.debug
       bot.on 'raw', (e) ->
         logger.info "RAW: " + e
