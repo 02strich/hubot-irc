@@ -1,12 +1,12 @@
-# Hubot IRC Adapter
+# Hubot IRC Adapter (irc-framework edition)
 
 ## Travis-CI Build Status
 
-[![Build Status](https://travis-ci.org/nandub/hubot-irc.png?branch=master)](https://travis-ci.org/nandub/hubot-irc)
+[![Build Status](https://travis-ci.org/02strich/hubot-irc-framework.png?branch=master)](https://travis-ci.org/02strich/hubot-irc-framework)
 
 ## Description
 
-This is the IRC adapter for hubot.  For discussion about this adapter, join `#hubot-irc` on `irc.freenode.net`.  For convenience you can [#hubot-irc using webchat.freenode.net/](http://webchat.freenode.net/?channels=hubot-irc&uio=d4)
+This is the IRC adapter for hubot using irc-framework based on https://github.com/nandub/hubot-irc.
 
 ## Installation and Setup
 
@@ -19,7 +19,6 @@ To get your own hubot up and running we recommend following the [Getting Started
     % HUBOT_IRC_SERVER=irc.freenode.net \
       HUBOT_IRC_ROOMS="#myhubot-irc" \
       HUBOT_IRC_NICK="myhubot" \
-      HUBOT_IRC_UNFLOOD="true" \
       bin/hubot -a irc --name myhubot
 
 **Note**: The default hubot configuration will use a redis based brain that assumes the redis server is already running.  Either start your local redis server (usually with `redis-start &`) or remove the `redis-brain.coffee` script from the default `hubot-scripts.json` file.
@@ -168,14 +167,14 @@ From Powershell:
     setx HUBOT_IRC_SERVER "..." /m
 
     setx HUBOT_IRC_ROOMS "#foo,#bar" /m
-    
+
 ### Testing Local Changes
 
     gem install foreman
     git clone https://github.com/github/hubot.git
     cd hubot
     # this next line makes a deployable version of the bot for heroku or local deployments
-    make package 
+    make package
     mv hubot/ ../testbot
     cd ../testbot
     - modify package.json to include the version of hubot-irc to test with either an official release or from your local repo
@@ -183,7 +182,7 @@ From Powershell:
     - modify Procfile, change adapter (-a option) to "irc" and change the name (-n option) of the bot
     - make sure you followed the usage section from above to set the environment variables (Non-Heroku section)
     foreman start
-    
+
     ...and that is it
 
 ## Contribute
@@ -202,4 +201,3 @@ Here's the most direct way to get your work merged into the project.
 ## Copyright
 
 Copyright &copy; Hubot Irc Community Contributors. MIT License; see LICENSE for further details.
-

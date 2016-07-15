@@ -1,16 +1,16 @@
 {
-  "name": "hubot-irc",
-  "version": "0.2.8",
-  "author": "Fernando Ortiz <nandub@nandub.info>",
-  "description": "IRC adapter for Hubot 2.3",
+  "name": "hubot-irc-framework",
+  "version": "0.0.1",
+  "author": "Stefan Richter <stefan@02strich.de>",
+  "description": "IRC adapter for Hubot 2.3 (using irc-framework)",
   "keywords": "hubot irc adapter",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/nandub/hubot-irc.git"
+    "url": "git://github.com/02strich/hubot-irc-framework.git"
   },
   "bugs": {
-    "url": "http://github.com/nandub/hubot-irc/issues"
+    "url": "http://github.com/02strich/hubot-irc-framework/issues"
   },
   "main": "./src/irc.coffee",
   "engine": "node > 0.6.0",
